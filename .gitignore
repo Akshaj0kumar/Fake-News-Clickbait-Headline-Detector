@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Environment and sensitive keys
+.env
+.env.*
+
+# Large CSV datasets (>50MB)
+data/fake.csv
+data/true.csv
+data/orders.csv
+data/order_products__prior.csv
+data/order_products__train.csv
+data/products.csv
+data/aisles.csv
+data/departments.csv
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
