@@ -1,15 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "flask",
   "functions": {
-    "api/index.py": {
+    "app.py": {
       "maxDuration": 60,
       "excludeFiles": "{data/**,models/*.joblib,test_*.py,train.py,requirements-train.txt}"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ]
+  }
 }

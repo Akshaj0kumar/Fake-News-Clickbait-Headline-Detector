@@ -18,6 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TOKEN_RE = re.compile(r"(?u)\b\w\w+\b")
 
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, "templates"))
+app.url_map.strict_slashes = False
 
 
 class FastHeadlineModel:

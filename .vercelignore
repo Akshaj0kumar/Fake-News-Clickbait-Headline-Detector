@@ -1,0 +1,7 @@
+data/
+models/*.joblib
+test_app.py
+train.py
+requirements-train.txt
+__pycache__/
+.git/

@@ -62,7 +62,7 @@ Open your browser and navigate to: **`http://127.0.0.1:5000`**
 
 ### 4. Deploy to Vercel
 - Select the repository root (`./`) as the **Root Directory** in Vercel.
-- Leave Build & Output settings at their defaults (`vercel.json` and `api/index.py` handle routing and keep the serverless bundle minimal).
+- Leave Build & Output settings at their defaults (`vercel.json` sets `"framework": "flask"` and `.vercelignore` keeps the serverless bundle minimal).
 - Click **Deploy**.
 
 ### 5. (Optional) Retrain Models
