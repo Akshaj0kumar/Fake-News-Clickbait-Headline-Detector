@@ -51,6 +51,7 @@ cd Fake-News-Clickbait-Headline-Detector
 ```bash
 pip install -r requirements.txt
 ```
+*(To retrain models locally with scikit-learn and pandas, run `pip install -r requirements-train.txt`.)*
 
 ### 3. Run the Application
 The pre-trained models are already included in `models/`, so you can launch the app immediately:
@@ -59,9 +60,15 @@ python app.py
 ```
 Open your browser and navigate to: **`http://127.0.0.1:5000`**
 
-### 4. (Optional) Retrain Models
+### 4. Deploy to Vercel
+- Select the repository root (`./`) as the **Root Directory** in Vercel.
+- Leave Build & Output settings at their defaults (`vercel.json` and `api/index.py` handle routing and keep the serverless bundle minimal).
+- Click **Deploy**.
+
+### 5. (Optional) Retrain Models
 To retrain the models from the dataset:
 ```bash
+pip install -r requirements-train.txt
 python train.py
 ```
 

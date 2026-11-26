@@ -1,6 +1,5 @@
 """Linguistic cue analysis + shared helpers."""
 import re
-import numpy as np
 
 SENSATIONAL = {"shocking", "unbelievable", "amazing", "insane", "secret", "miracle", "exposed",
                "destroys", "slams", "epic", "outrage", "bombshell", "scandal", "terrifying",
@@ -28,4 +27,5 @@ def cues(h: str) -> list:
 
 
 def cue_matrix(texts):
+    import numpy as np
     return np.array([cues(t) for t in texts])

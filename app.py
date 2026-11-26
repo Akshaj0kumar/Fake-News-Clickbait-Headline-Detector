@@ -5,41 +5,101 @@ Combines:
 3. LLM Model / API Integration (Gemini, Groq, OpenAI, Anthropic, Ollama, and Built-in Neural Engine)
 Run: python app.py -> open http://127.0.0.1:5000
 """
+import gzip
+import json
+import math
 import os
 import re
-import joblib
 from flask import Flask, request, jsonify, render_template
 from nlp_utils import cues, CUE_NAMES
 from llm_service import get_llm_analysis, PROVIDER_DEFAULTS
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TOKEN_RE = re.compile(r"(?u)\b\w\w+\b")
 
-# Ensure models are loaded safely
-CB_PATH = "models/clickbait.joblib"
-MI_PATH = "models/misinfo.joblib"
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, "templates"))
 
-if os.path.exists(CB_PATH) and os.path.exists(MI_PATH):
-    CB = joblib.load(CB_PATH)
-    MI = joblib.load(MI_PATH)
-    print("Loaded ML models successfully from models/")
-else:
-    raise FileNotFoundError("Models not found! Please run train.py first.")
+
+class FastHeadlineModel:
+    """Dependency-free TF-IDF (1-2 grams, sublinear TF, L2 norm) + LogisticRegression inference."""
+
+    def __init__(self, gz_path: str):
+        with gzip.open(gz_path, "rt", encoding="utf-8") as f:
+            payload = json.load(f)
+        self.weights = payload["weights"]
+        self.cue_coefs = payload["cue_coefs"]
+        self.intercept = payload["intercept"]
+
+    def _predict_one(self, text: str) -> float:
+        tokens = TOKEN_RE.findall(text.lower())
+        counts = {}
+        for tok in tokens:
+            if tok in self.weights:
+                counts[tok] = counts.get(tok, 0) + 1
+        for i in range(len(tokens) - 1):
+            bg = tokens[i] + " " + tokens[i + 1]
+            if bg in self.weights:
+                counts[bg] = counts.get(bg, 0) + 1
+
+        sq_sum = 0.0
+        dot = 0.0
+        for gram, tf in counts.items():
+            idf_val, weight = self.weights[gram]
+            val = (1.0 + math.log(tf)) * idf_val
+            sq_sum += val * val
+            dot += val * weight
+
+        if sq_sum > 0.0:
+            dot /= math.sqrt(sq_sum)
+
+        c_vals = cues(text)
+        z = self.intercept + dot + sum(cv * cw for cv, cw in zip(c_vals, self.cue_coefs))
+        if z >= 0:
+            return 1.0 / (1.0 + math.exp(-z))
+        ez = math.exp(z)
+        return ez / (1.0 + ez)
+
+    def predict_proba(self, texts):
+        return [[1.0 - p, p] for p in (self._predict_one(t) for t in texts)]
+
+
+def load_model(name: str):
+    """Load compact .json.gz model (pure Python) or fallback to .joblib if available."""
+    gz_path = os.path.join(BASE_DIR, "models", f"{name}.json.gz")
+    if os.path.exists(gz_path):
+        return FastHeadlineModel(gz_path)
+
+    joblib_path = os.path.join(BASE_DIR, "models", f"{name}.joblib")
+    if os.path.exists(joblib_path):
+        import joblib
+        return joblib.load(joblib_path)
+
+    raise FileNotFoundError(f"Model '{name}' not found in models/. Please run train.py first.")
+
+
+CB = load_model("clickbait")
+MI = load_model("misinfo")
+print("Loaded ML models successfully from models/")
+
 
 def influence(model, headline):
     """Explainability by occlusion: remove each word, measure the drop in probability."""
     words = headline.split()
-    base = model.predict_proba([headline])[0][1]
+    base = float(model.predict_proba([headline])[0][1])
     texts = [" ".join(words[:i] + words[i + 1:]) for i in range(len(words))]
-    probs = model.predict_proba(texts)[:, 1] if texts else []
-    return [round(float(base - p), 4) for p in probs]
+    probs = [float(p[1]) for p in model.predict_proba(texts)] if texts else []
+    return [round(base - p, 4) for p in probs]
+
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
 @app.route("/api/providers", methods=["GET"])
 def get_providers():
     return jsonify(providers=PROVIDER_DEFAULTS)
+
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -90,6 +150,7 @@ def analyze():
         cues=cue_list,
         llm=llm_result
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

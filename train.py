@@ -1,5 +1,7 @@
 """Trains the two heads: (1) clickbait, (2) misinformation. Run: python train.py"""
 import os
+import gzip
+import json
 import random
 import pandas as pd
 import joblib
@@ -96,6 +98,29 @@ def load_clickbait():
         y = ([1] * len(CB) + [0] * len(NCB)) * 6
         return X, y
 
+def export_lightweight(pipeline, name):
+    """Export TF-IDF + LogisticRegression weights to compact .json.gz for dependency-free inference."""
+    tfidf = pipeline.named_steps["features"].transformer_list[0][1]
+    clf = pipeline.named_steps["clf"]
+    vocab = tfidf.vocabulary_
+    idf = tfidf.idf_
+    coef = clf.coef_[0]
+    n_vocab = len(vocab)
+    weights = {
+        tok: [round(float(idf[idx]), 8), round(float(coef[idx]), 8)]
+        for tok, idx in vocab.items()
+    }
+    payload = {
+        "weights": weights,
+        "cue_coefs": [float(x) for x in coef[n_vocab:]],
+        "intercept": float(clf.intercept_[0]),
+    }
+    out_path = f"models/{name}.json.gz"
+    with gzip.open(out_path, "wt", encoding="utf-8") as f:
+        json.dump(payload, f, separators=(",", ":"))
+    print(f"Exported lightweight inference model {out_path} ({os.path.getsize(out_path) / 1024:.1f} KB).")
+
+
 def fit(X, y, name):
     os.makedirs("models", exist_ok=True)
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
@@ -104,7 +129,9 @@ def fit(X, y, name):
     print(f"\n=== Classification Report: {name} ===\n", classification_report(yte, m.predict(Xte), target_names=target_names))
     model_path = f"models/{name}.joblib"
     joblib.dump(m, model_path)
-    print(f"Saved {model_path} successfully.\n")
+    print(f"Saved {model_path} successfully.")
+    export_lightweight(m, name)
+    print()
 
 if __name__ == "__main__":
     X_cb, y_cb = load_clickbait()
